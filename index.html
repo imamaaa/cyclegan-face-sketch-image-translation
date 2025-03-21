@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CycleGAN Image Converter</title>
+    <style>
+        body {
+            background-color: #add8e6; /* Light blue background */
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-y: scroll; /* Enable vertical scroll */
+        }
+
+        h1, h2, h3 {
+            text-align: center;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+            margin: 20px;
+        }
+
+        label {
+            font-size: 1.2em;
+        }
+
+        select, input[type="file"] {
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            font-size: 1.1em;
+        }
+
+        button {
+            background-color: #1e3d59; /* Dark blue button */
+            color: white;
+            padding: 10px 20px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #16324a;
+        }
+
+        video, img {
+            margin: 10px 0;
+            border-radius: 10px;
+            max-width: 100%;
+        }
+
+        #capturedImage {
+            max-width: 100%;
+        }
+
+        .instructions {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CycleGAN Image Converter</h1>
+
+        <form id="uploadForm" enctype="multipart/form-data" action="/convert" method="POST">
+
+            <div class="instructions">
+                <h3>Instructions</h3>
+                <p>1. To convert an image, select the conversion type and upload a file.</p>
+                <p>2. Alternatively, use your camera by clicking "Capture Photo" to take a live photo.</p>
+                <p>3. After capturing the photo, click "Convert Captured Image" to process it.</p>
+                <p>4. The converted image will be displayed.</p>
+            </div>
+
+            <h2>Convert Face to Sketch or Sketch to Face</h2>
+
+            <label for="conversion_type">Select Conversion Type:</label>
+            <select id="conversion_type" name="conversion_type">
+                <option value="face_to_sketch">Face to Sketch</option>
+                <option value="sketch_to_face">Sketch to Face</option>
+            </select><br><br>
+
+            <input type="file" id="imageInput" name="image"><br><br>
+            <button type="submit">Upload Image</button><br><br>
+
+            <h2>Or use your camera:</h2>
+            <video id="camera" width="640" height="480" autoplay></video><br><br>
+            <button type="button" onclick="capturePhoto()">Capture Photo</button>
+            <canvas id="canvas" style="display:none;"></canvas>
+            <img id="capturedImage" src="" alt="Captured Image"><br><br>
+
+            <button type="button" onclick="uploadCapturedPhoto()">Convert Captured Image</button>
+        </form>
+    </div>
+
+    <script>
+        // Access the user's camera
+        const video = document.getElementById('camera');
+        const canvas = document.getElementById('canvas');
+        const capturedImage = document.getElementById('capturedImage');
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            });
+
+        // Capture photo from camera
+        function capturePhoto() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageDataURL = canvas.toDataURL('image/jpeg');
+            capturedImage.src = imageDataURL;
+            capturedImage.style.display = 'block';
+        }
+
+        // Upload captured photo
+        function uploadCapturedPhoto() {
+            const dataURL = canvas.toDataURL('image/jpeg');
+            const blob = dataURItoBlob(dataURL);
+            const formData = new FormData();
+            formData.append('image', blob, 'captured_image.jpg');
+            formData.append('conversion_type', document.getElementById('conversion_type').value);
+
+            fetch('/convert', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.blob())
+            .then(imageBlob => {
+                const imageURL = URL.createObjectURL(imageBlob);
+                window.open(imageURL);
+            });
+        }
+
+        // Convert base64/URLEncoded data component to a file object
+        function dataURItoBlob(dataURI) {
+            const byteString = atob(dataURI.split(',')[1]);
+            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], { type: mimeString });
+        }
+    </script>
+</body>
+</html>
